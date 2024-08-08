@@ -21,7 +21,7 @@ trap ctrl_c INT
 function helpPanel(){
     echo -e "\n${yellowColour}[+]${endColour}${grayColour} Uso: ${endColour}${purpleColour}$0${endColour}\n"
     echo -e "\t${yellowColour}-m)${endColour}${blueColour} Dinero con el que se desea jugar${endColour}"
-    echo -e "\t${yellowColour}-t)${endColour}${blueColour} Técnica a utilizar${endColour}${purpleColour} (martingala/inverseLabrouchere)${endColour}"
+    echo -e "\t${yellowColour}-t)${endColour}${blueColour} Técnica a utilizar${endColour}${purpleColour} (martingala/inverseLabrouchere/dAlembert)${endColour}"
     exit 1
 }
 
@@ -170,6 +170,85 @@ function inverseLabrouchere(){
     tput cnorm
 }
 
+function dAlembert(){
+    echo -e "\n${blueColour}[+]${endColour}${yellowColour} Dinero actual: ${endColour}${greenColour}$money€${endColour}"
+    echo -ne "${blueColour}[+]${endColour}${yellowColour} ¿Cuánto dinero tienes pensado apostar? ->${endColour}" && read base_bet
+    echo -ne "${blueColour}[+]${endColour}${yellowColour} ¿A qué deseas apostar continuamente? (par/impar) ->${endColour}" && read par_impar
+
+    if [[ ! "$base_bet" =~ ^[0-9]+$ ]] || [[ "$base_bet" -le 0 ]]; then
+        echo -e "${redColour}[!] La apuesta base debe ser un número positivo.${endColour}"
+        exit 1
+    fi
+
+    if [[ "$par_impar" != "par" && "$par_impar" != "impar" ]]; then
+        echo -e "${redColour}[!] La apuesta debe ser 'par' o 'impar'.${endColour}"
+        exit 1
+    fi
+
+    echo -e "${blueColour}[+]${endColour}${yellowColour} Vamos a jugar con una apuesta base de${endColour}${greenColour} $base_bet€${endColour} a${purpleColour} $par_impar${endColour}."
+
+    bet=$base_bet
+    max_money=$money
+    play_counter=1
+
+    while true; do
+        if [ "$bet" -gt "$money" ]; then
+            echo -e "${redColour}[!] Han habido un total de ${yellowColour}$play_counter${endColour} jugadas.${endColour}"
+            echo -e "${redColour}[!] No tienes suficiente dinero para cubrir la apuesta.${endColour}"
+            break
+        fi
+
+        money=$(($money - $bet))
+
+        random_number=$(($RANDOM % 37))
+        echo -e "\n${blueColour}[+]${endColour}${yellowColour} Ha salido el número ${endColour}${greenColour}$random_number${endColour}"
+
+        if [ $(($random_number % 2)) -eq 0 ]; then
+            if [ $random_number -eq 0 ]; then
+                echo -e "${redColour}[+] Ha salido el 0, por lo que gana la banca.${endColour}"
+                bet=$(($bet + 1))
+            else
+                echo -e "${blueColour}[+] El número es par${endColour}"
+                if [ "$par_impar" == "impar" ]; then
+                    bet=$(($bet + 1))
+                else
+                    money=$(($money + ($bet * 2)))
+                    bet=$(($bet - 1))
+                    if [ $bet -lt $base_bet ]; then
+                        bet=$base_bet
+                    fi
+                fi
+            fi
+        else
+            echo -e "${blueColour}[+] El número es impar${endColour}"
+            if [ "$par_impar" == "par" ]; then
+                bet=$(($bet + 1))
+            else
+                money=$(($money + ($bet * 2)))
+                bet=$(($bet - 1))
+                if [ $bet -lt $base_bet ]; then
+                    bet=$base_bet
+                fi
+            fi
+        fi
+
+        echo -e "${blueColour}[+]${endColour}${yellowColour} Tu dinero es${endColour} ${greenColour}$money€${endColour}, ${yellowColour}la apuesta actual es${endColour} ${greenColour}$bet€${endColour}."
+
+        if [ "$money" -le 0 ]; then
+            echo -e "${redColour}[!] Te has quedado sin dinero.${endColour}"
+            echo -e "${redColour}[!] Han habido un total de ${yellowColour}$play_counter${endColour} jugadas.${endColour}"
+            echo -e "${redColour}[!] Tu máximo dinero alcanzado ha sido: ${greenColour}$max_money€${endColour}.${endColour}"
+            break
+        fi
+
+        let play_counter+=1
+
+        if [ $money -gt $max_money ]; then
+            max_money=$money
+        fi
+    done
+}
+
 while getopts "m:t:" arg; do
     case $arg in
         m) money=$OPTARG ;;
@@ -183,6 +262,8 @@ if [ $money ] && [ $technique ]; then
         martingala
     elif [ "$technique" == "inverseLabrouchere" ]; then
         inverseLabrouchere
+    elif [ "$technique" == "dAlembert" ]; then
+        dAlembert
     else
         echo -e "${redColour}[!] La técnica introducida no existe.${endColour}"
         helpPanel
